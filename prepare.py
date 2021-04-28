@@ -3,8 +3,7 @@ from shutil import copyfile
 
 download_path = 'D:\ReId_dataset\Market-1501-v15.09.15'
 
-if not os.path.isdir(download_path):
-    print('please change the download_path')
+assert os.path.isdir(download_path) is False,"please change the download_path"
 
 save_path = download_path + '/pytorch'
 if not os.path.isdir(save_path):

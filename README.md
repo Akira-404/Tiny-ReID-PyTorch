@@ -14,30 +14,34 @@ Market-1501
 
 # Usage
 
+## Clone demo
+
+```
+git clone https://github.com/Linfeng-Lee/ReID-PyTorch-Tiny
+```
+
 
 ## Prepare Dataset
 
-**change your dataset path**
+**change your dataset path in prepare.py**  
 
 ```
-download_path = 'D:\ReId_dataset\Market-1501-v15.09.15'
+[line:4] download_path = 'D:\ReId_dataset\Market-1501-v15.09.15'
+
 python3 prepare.py
 ```
 
 ## Train
 
-Train a model by
-
-Change your dataset path
+**Train a model by change your dataset path in train.py**
 
 ```
-dir_path="this is your datast path"
+[line:59] dir_path="this is your datast path"
+
 python3 train.py 
 ```
 
 ## Test
-
-Use trained model to extract feature by
 
 ```bash
 python test.py 
