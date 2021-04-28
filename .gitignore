@@ -1,0 +1,12 @@
+.idea/
+__pycache__/
+
+model_weight/
+
+test_imgs/gallery/*
+test_imgs/query/*
+
+
+models/__pycache__/resnet50.cpython-36.pyc
+
+result.mat
