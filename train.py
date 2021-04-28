@@ -194,6 +194,8 @@ name = "ResNet50"
 def save_network(network, epoch_label):
     save_filename = 'net_%s.pth' % epoch_label
     save_path = os.path.join('./model_weight', name, save_filename)
+    if os.path.exists('./model_weight') is False:
+        os.mkdir("./model_weight")
     torch.save(network.cpu().state_dict(), save_path)
     if torch.cuda.is_available():
         network.cuda(0)
