@@ -3,17 +3,15 @@ import torch.nn as nn
 from torch.nn import init
 from torchvision import models
 from torch.autograd import Variable
-import pretrainedmodels
+import functools as F
 
 
-# init weights
 def weights_init_kaiming(m):
-    # get class name
     classname = m.__class__.__name__
 
     print("get calss name:", classname)
     if classname.find('Conv') != -1:
-        init.kaiming_normal_(m.weight.data, a=0, mode='fan_in')  # For old pytorch, you may use kaiming_normal.
+        init.kaiming_normal_(m.weight.data, a=0, mode='fan_in')
     elif classname.find('Linear') != -1:
         init.kaiming_normal_(m.weight.data, a=0, mode='fan_out')
         init.constant_(m.bias.data, 0.0)
@@ -22,7 +20,6 @@ def weights_init_kaiming(m):
         init.constant_(m.bias.data, 0.0)
 
 
-# init weights for classifier
 def weights_init_classifier(m):
     classname = m.__class__.__name__
     if classname.find('Linear') != -1:
@@ -30,8 +27,6 @@ def weights_init_classifier(m):
         init.constant_(m.bias.data, 0.0)
 
 
-# Defines the new fc layer and classification layer
-# |--Linear--|--bn--|--relu--|--Linear--|
 class ClassBlock(nn.Module):
     def __init__(self, input_dim,
                  class_num,
@@ -79,46 +74,26 @@ class ClassBlock(nn.Module):
             return x
 
 
-# Define the ResNet50-based Model
 class Net(nn.Module):
-
-    def __init__(self, class_num=751, droprate=0.5, stride=2, circle=False):
+    def __init__(self, class_num=751, droprate=0.5):
         super(Net, self).__init__()
+        model = models.mobilenet_v2(pretrained=True)
+        self.model = model
+        self.avgpool2d = nn.AdaptiveAvgPool2d((1, 1))
+        self.classifier = ClassBlock(1280, class_num, droprate)
 
-        # use or not pretrained model
-        model_ft = models.resnet50(pretrained=True)
-
-        # avg pooling to global pooling
-        if stride == 1:
-            model_ft.layer4[0].downsample[0].stride = (1, 1)
-            model_ft.layer4[0].conv2.stride = (1, 1)
-
-        # AdaptiveAvgPool2d output size is 1x1
-        model_ft.avgpool = nn.AdaptiveAvgPool2d((1, 1))
-        self.model = model_ft
-        self.circle = circle
-        self.classifier = ClassBlock(2048, class_num, droprate, return_f=circle)
-
-    def forward(self, x):
-        x = self.model.conv1(x)
-        x = self.model.bn1(x)
-        x = self.model.relu(x)
-        x = self.model.maxpool(x)
-        x = self.model.layer1(x)
-        x = self.model.layer2(x)
-        x = self.model.layer3(x)
-        x = self.model.layer4(x)
-        x = self.model.avgpool(x)
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        x = self.model.features(x)
+        x = self.avgpool2d(x)
+        x = x.reshape(x.shape[0], -1)
         x = x.view(x.size(0), x.size(1))
         x = self.classifier(x)
         return x
 
 
 if __name__ == '__main__':
-    net = Net(751, stride=1)
-    # net.classifier = nn.Sequential()
+    net = Net(751)
     print(net)
     input = Variable(torch.FloatTensor(8, 3, 256, 128))
     output = net(input)
-    print('net output size:')
     print(output.shape)

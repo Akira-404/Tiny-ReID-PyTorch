@@ -188,7 +188,7 @@ def train_model(model, criterion, optimizer, scheduler, num_epochs=25):
     return model
 
 
-name = "ResNet50"
+name = "mobilenetv2"
 
 
 def save_network(network, epoch_label):
