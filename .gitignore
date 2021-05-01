@@ -10,3 +10,7 @@ test_imgs/query/*
 models/__pycache__/resnet50.cpython-36.pyc
 
 result.mat
+
+t1.jpg
+t2.jpg
+code_test.py

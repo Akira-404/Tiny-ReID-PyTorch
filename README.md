@@ -1,7 +1,7 @@
 # Tiny-ReID-PyTorch 
 
 ```
-GitHub:https://github.com/Linfeng-Lee
+My GitHub:https://github.com/Linfeng-Lee
 ```
 
 # Dataset
@@ -46,3 +46,13 @@ python3 train.py
 ```bash
 python test.py 
 ```
+
+## HTTP Server
+
+```python
+python server.py
+```
+
+url:http://your ip address:24415/reid
+
+![image-20210501191946840](C:\Users\Administrator\AppData\Roaming\Typora\typora-user-images\image-20210501191946840.png)

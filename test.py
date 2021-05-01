@@ -1,19 +1,13 @@
-import torch
 import torch.nn as nn
-import torch.optim as optim
-from torch.optim import lr_scheduler
 from torch.autograd import Variable
-import torch.backends.cudnn as cudnn
-import numpy as np
-import torchvision
-from torchvision import datasets, models, transforms
-import time
+from torchvision import transforms
 import os
-import scipy.io
 import math
 from models.resnet50 import Net
 from PIL import Image
 from PIL import ImageFile
+import torch.backends.cudnn as cudnn
+import torch
 
 
 # 加载网络权重
@@ -37,14 +31,17 @@ def get_feature(model, img_path, transforms, ms):
 
     img = transforms(img)
     img = torch.unsqueeze(img, 0)
+
     features = torch.FloatTensor()
+
     n, c, h, w = img.size()
-    ff = torch.FloatTensor(n, 512).zero_()
+    ff = torch.FloatTensor(n, 512).zero_().cuda()
     for i in range(2):
         if (i == 1):
             img = fliplr(img)
 
         if torch.cuda.is_available():
+            # print("torch.cuda.is_available():", torch.cuda.is_available())
             input_img = Variable(img.cuda())
         else:
             input_img = Variable(img)
@@ -65,8 +62,14 @@ def get_feature(model, img_path, transforms, ms):
 
 
 def img_test(img1_path: str, img2_path: str):
-    assert os.path.exists(img1_path) is True,"file_path is not exists"
-    assert os.path.exists(img2_path) is True,"file_path is not exists"
+    assert os.path.exists(img1_path) is True, "file_path is not exists"
+    assert os.path.exists(img2_path) is True, "file_path is not exists"
+
+    use_gpu = torch.cuda.is_available()
+    if use_gpu:
+        print("use gpu:", use_gpu)
+        torch.cuda.set_device("cuda:0")
+        cudnn.benchmark = True
 
     data_transforms = transforms.Compose([
         transforms.Resize((256, 128), interpolation=3),
@@ -78,9 +81,8 @@ def img_test(img1_path: str, img2_path: str):
     model = load_network(model_structure, network_weights_path="model_weight/net_59.pth")
 
     model.classifier.classifier = nn.Sequential()
-    model = model.eval()
 
-    use_gpu = torch.cuda.is_available()
+    model = model.eval()
     if use_gpu:
         model = model.cuda()
 
@@ -105,7 +107,7 @@ def img_test(img1_path: str, img2_path: str):
 
 
 def file_test(file_path: str):
-    assert os.path.exists(file_path) is True,"file_path is not exists"
+    assert os.path.exists(file_path) is True, "file_path is not exists"
     ms = "1"
     stride = 2
     nclasses = 751
@@ -158,13 +160,13 @@ def file_test(file_path: str):
 
 
 if __name__ == '__main__':
-    # ret=img_test("./test_imgs/gallery/g (4).png","./test_imgs/query/q (2).png")
-
-    gallery_features, gallery_label = file_test("test_imgs/gallery")
-    query_features, query_label = file_test("test_imgs/query")
-
-    result = {'query_features': query_features.numpy(),
-              'query_label': query_label,
-              'gallery_features': gallery_features.numpy(),
-              'gallery_label': gallery_label}
-    scipy.io.savemat("result.mat",result)
+    ret = img_test("./t1.jpg", "./t2.jpg")
+    #
+    # gallery_features, gallery_label = file_test("test_imgs/gallery")
+    # query_features, query_label = file_test("test_imgs/query")
+    #
+    # result = {'query_features': query_features.numpy(),
+    #           'query_label': query_label,
+    #           'gallery_features': gallery_features.numpy(),
+    #           'gallery_label': gallery_label}
+    # scipy.io.savemat("result.mat",result)
