@@ -109,36 +109,35 @@ app = Flask(__name__)
 
 @app.route('/', methods=['POST'])
 def reid_run():
-    # 获取请求参数
-    img1_list = request.values.getlist("img1_list")
-    img2_list = request.values.getlist("img2_list")
-    t = request.form.get("t")
-    print("t:", t)
+    params = request.json if request.method == "POST" else request.args
+    print(type(params["img1_list"]))
+    # print(params["img2_list"])
 
-    img1_base64_list = img1_list[0].split(',')
-    img2_base64_list = img2_list[0].split(',')
 
-    img1_PIL = base64_to_image(img1_base64_list)
-    img2_PIL = base64_to_image(img2_base64_list)
+    t = params["t"]
 
-    features1 = get_featureV2(model, img1_PIL, data_transforms, ms)
-    features1 = np.around(features1, 4)
+    img1_PIL = base64_to_image(params["img1_list"])
+    # base64_save(params["img1_list"])
+    img2_PIL = base64_to_image(params["img2_list"])
+    if True:
+        features1 = get_featureV2(model, img1_PIL, data_transforms, ms)
+        features1 = np.around(features1, 4)
 
-    features2 = get_featureV2(model, img2_PIL, data_transforms, ms)
-    features2_T = np.around(np.transpose(features2, [1, 0]), 4)
-    with torch.no_grad():
-        # 矩阵乘法torch.mm [1,2]x[2,3]=[1,3]
-        score = np.dot(features1, features2_T)
-        print("score:", score)
-    pairs1 = []
-    pairs2 = []
-    for i, s in enumerate(score):
-        max_index = np.argmax(s)
-        if float(s[max_index]) < float(t):
-            pairs2.append(-1)
-            continue
-        pairs1.append(i)
-        pairs2.append(int(max_index))
+        features2 = get_featureV2(model, img2_PIL, data_transforms, ms)
+        features2_T = np.around(np.transpose(features2, [1, 0]), 4)
+        with torch.no_grad():
+            # 矩阵乘法torch.mm [1,2]x[2,3]=[1,3]
+            score = np.dot(features1, features2_T)
+            print("score:", score)
+        pairs1 = []
+        pairs2 = []
+        for i, s in enumerate(score):
+            max_index = np.argmax(s)
+            if float(s[max_index]) < float(t):
+                pairs2.append(-1)
+                continue
+            pairs1.append(i)
+            pairs2.append(int(max_index))
     # 返回结果
     return get_result(200, "Success", {"cam1": pairs1, "cam2": pairs2})
 
