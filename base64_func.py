@@ -4,19 +4,34 @@ import cv2
 import numpy as np
 from io import BytesIO
 from PIL import Image
+import torch
 
 encode_list = []
+
+
+def base64_save(base64_data_list: list):
+    for i, data in enumerate(base64_data_list):
+        byte_data = base64.b64decode(data)
+        image_data = BytesIO(byte_data)
+        img = Image.open(image_data)
+        img.save("{}.jpg".format(i))
+        print("save {}".format(i))
+
+
 '''
 base64 code to Image
 '''
-def base64_to_image(base64_data_list: list)->list:
-    image_list=[]
+
+
+def base64_to_image(base64_data_list: list) -> list:
+    image_list = []
     for i, data in enumerate(base64_data_list):
         byte_data = base64.b64decode(data)
         image_data = BytesIO(byte_data)
         img = Image.open(image_data)
         image_list.append(img)
     return image_list
+
 
 def base64_encode(img_path=None, file_path=None) -> list:
     encode_list = []
@@ -38,7 +53,7 @@ def base64_encode(img_path=None, file_path=None) -> list:
             img_data = f.read()
             base64_data = base64.b64encode(img_data)
             # print(type(base64_data))
-            encode_list.append(str(base64_data,'utf-8'))
+            encode_list.append(str(base64_data, 'utf-8'))
 
             # base64_str = str(base64_data, 'utf-8')
             # print("Encode is done!")
@@ -46,9 +61,12 @@ def base64_encode(img_path=None, file_path=None) -> list:
     print("Encode is done!")
     return encode_list
 
+
 '''
 base64 code to opencv image
 '''
+
+
 def base64_decode2cv2(base64_data_list: list) -> list:
     """
 
@@ -70,14 +88,23 @@ def base64_decode2cv2(base64_data_list: list) -> list:
 imgs_dir = "/home/lu/people_imgs/1/"
 imgs_out_dir = "/home/lu/people_imgs/out"
 if __name__ == '__main__':
-    base64_list = []
-    base64_list = base64_encode(file_path=imgs_dir)
-    print(len(base64_list))
-    img_list=base64_to_image(base64_list)
+    a = torch.Tensor([[1, 2, 3], [4, 5, 6]])
+    b=a.view(-1, 2)
+    mat1=a.numpy()
+    mat2=b.numpy()
+    print(mat2.shape)
+    print(mat2)
+    mat3=np.transpose(mat2,[1,0])
+    print(mat3.shape)
+    print(mat3)
+    # base64_list = []
+    # base64_list = base4_encode(file_path=imgs_dir)
+    # print(len(base64_list))
+    # img_list = base64_to_image(base64_list)
     # img_list = base64_decode2cv2(base64_list)
-    for i, img in enumerate(img_list):
-        # cv2.imwrite("/home/lu/people_imgs/out/{}.jpg".format(i), img)
-       img.save("/home/lu/people_imgs/out/{}.jpg".format(i))
+    # for i, img in enumerate(img_list):
+    #     cv2.imwrite("/home/lu/people_imgs/out/{}.jpg".format(i), img)
+    # img.save("/home/lu/people_imgs/out/{}.jpg".format(i))
     # print("len:",len(base64_list[0]))
     # list1=["a","b"]
     # print(len(list1))

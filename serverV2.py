@@ -1,5 +1,5 @@
 '''
-this http server is a 1:1 ReID
+http server is a N:M ReID
 '''
 
 from flask import Flask, jsonify, request, redirect, render_template
@@ -7,13 +7,11 @@ from flask import Flask, jsonify, request, redirect, render_template
 import torch.nn as nn
 from torch.autograd import Variable
 from torchvision import transforms
-import os
 import math
 from models.resnet50 import Net
-from PIL import Image
 from PIL import ImageFile
 import torch.backends.cudnn as cudnn
-import torch
+from base64_func import *
 
 
 # 加载网络权重
@@ -30,31 +28,30 @@ def fliplr(img):
     return img_flip
 
 
-def get_feature(model, img_path, transforms, ms):
-    assert os.path.exists(img_path) == True, "图片不存在"
-    img = Image.open(img_path).convert("RGB")
-    ImageFile.LOAD_TRUNCATED_IMAGES = True
-
-    img = transforms(img)
-    img = torch.unsqueeze(img, 0)
-
+def get_featureV2(model, img_list1: list, transforms, ms):
+    img_all = torch.FloatTensor()
+    for data in img_list1:
+        img = transforms(data)
+        img = torch.unsqueeze(img, 0)
+        img_all = torch.cat((img_all, img), 0)
     features = torch.FloatTensor()
-
-    n, c, h, w = img.size()
-    print(type(img))
+    print('-' * 10)
+    print("Input img shape:", img_all.shape)
+    n, c, h, w = img_all.size()
+    print(type(img_all))
 
     ff = torch.FloatTensor(n, 512).zero_()
     if torch.cuda.is_available():
         ff = torch.FloatTensor(n, 512).zero_().cuda()
+    # print("ff:", ff.shape)
     for i in range(2):
         if (i == 1):
-            img = fliplr(img)
+            img_all = fliplr(img_all)
 
+        input_img = Variable(img_all)
         if torch.cuda.is_available():
             # print("torch.cuda.is_available():", torch.cuda.is_available())
-            input_img = Variable(img.cuda())
-        else:
-            input_img = Variable(img)
+            input_img = Variable(img_all.cuda())
 
         for scale in ms:
             if scale != 1:
@@ -68,6 +65,7 @@ def get_feature(model, img_path, transforms, ms):
         fnorm = torch.norm(ff, p=2, dim=1, keepdim=True)
         ff = ff.div(fnorm.expand_as(ff))
     features = torch.cat((features, ff.data.cpu()), 0)
+    print("Output features shape:", features.shape)
     return features
 
 
@@ -93,7 +91,7 @@ model.classifier.classifier = nn.Sequential()
 model = model.eval()
 if use_gpu:
     model = model.cuda()
-
+#
 ms = "1"
 print('We use the scale: %s' % ms)
 str_ms = ms.split(',')
@@ -109,42 +107,50 @@ allowed_extension = ['png', 'jpg', 'jpeg']
 app = Flask(__name__)
 
 
-@app.route('/reid', methods=['POST'])
+@app.route('/', methods=['POST'])
 def reid_run():
-    # 校验请求参数
-    if 'file1' not in request.files or 'file2' not in request.files:
-        return get_result(-2, "请求参数错误", {})
-
     # 获取请求参数
-    file1 = request.files['file1']
-    file2 = request.files['file2']
-    print("Reqest params: {'file1': '%s', 'file2': '%s'}" % (file1.filename, file2.filename))
+    img1_list = request.values.getlist("img1_list")
+    img2_list = request.values.getlist("img2_list")
+    t = request.form.get("t")
+    print("t:", t)
 
-    # 检查文件扩展名
-    if not allowed_file(file1.filename) or not allowed_file(file2.filename):
-        return get_result(-1, "存在格式不正确的文件", {})
+    img1_base64_list = img1_list[0].split(',')
+    img2_base64_list = img2_list[0].split(',')
 
-    file1.save('img1.jpg')
-    file2.save('img2.jpg')
+    img1_PIL = base64_to_image(img1_base64_list)
+    img2_PIL = base64_to_image(img2_base64_list)
+
+    features1 = get_featureV2(model, img1_PIL, data_transforms, ms)
+    features1 = np.around(features1, 4)
+
+    features2 = get_featureV2(model, img2_PIL, data_transforms, ms)
+    features2_T = np.around(np.transpose(features2, [1, 0]), 4)
     with torch.no_grad():
-        feature1 = get_feature(model, './img1.jpg', data_transforms, ms)
-        feature2 = get_feature(model, './img2.jpg', data_transforms, ms)
-        # print(feature1)
-        # print(feature2)
-        feature2_T = feature2.view(-1, 1)
         # 矩阵乘法torch.mm [1,2]x[2,3]=[1,3]
-        score = torch.mm(feature1, feature2_T)
-        score = score.squeeze(1).cpu()
-        score = score.numpy()
-        os.remove('./img1.jpg')
-        os.remove('./img2.jpg')
+        score = np.dot(features1, features2_T)
+        print("score:", score)
+    pairs1 = []
+    pairs2 = []
+    for i, s in enumerate(score):
+        max_index = np.argmax(s)
+        if float(s[max_index]) < float(t):
+            pairs2.append(-1)
+            continue
+        pairs1.append(i)
+        pairs2.append(int(max_index))
     # 返回结果
-    return get_result(200, "Success", {"score": str(score[0])})
+    return get_result(200, "Success", {"cam1": pairs1, "cam2": pairs2})
 
 
-# 检查文件扩展名
-def allowed_file(filename):
-    return '.' in filename and filename.rsplit('.', 1)[1].lower() in allowed_extension
+def softmax(x: list) -> list:
+    ret = []
+    x = np.exp(x)
+    for i, data in enumerate(x):
+        e_data = np.exp(data)
+        data = e_data / x
+        ret.append(data)
+    return ret
 
 
 # 构建接口返回结果
@@ -152,7 +158,7 @@ def get_result(code, message, data):
     result = {
         "code": code,
         "message": message,
-        "data": data
+        "return": data
     }
     print("Response data:", result)
     return jsonify(result)
