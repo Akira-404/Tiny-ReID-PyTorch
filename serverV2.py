@@ -134,6 +134,7 @@ def reid_run():
         for i, s in enumerate(score):
             max_index = np.argmax(s)
             if float(s[max_index]) < float(t):
+                pairs1.append(i)
                 pairs2.append(-1)
                 continue
             pairs1.append(i)
