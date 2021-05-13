@@ -131,16 +131,21 @@ def reid_run():
             print("score:", score)
         pairs1 = []
         pairs2 = []
+        scores=[]
         for i, s in enumerate(score):
             max_index = np.argmax(s)
+
             if float(s[max_index]) < float(t):
                 pairs1.append(i)
                 pairs2.append(-1)
+                scores.append(0)
                 continue
+
+            scores.append(s[max_index])
             pairs1.append(i)
             pairs2.append(int(max_index))
     # 返回结果
-    return get_result(200, "Success", {"cam1": pairs1, "cam2": pairs2})
+    return get_result(200, "Success",str(scores), {"cam1": pairs1, "cam2": pairs2})
 
 
 def softmax(x: list) -> list:
@@ -154,10 +159,11 @@ def softmax(x: list) -> list:
 
 
 # 构建接口返回结果
-def get_result(code, message, data):
+def get_result(code, message,score, data):
     result = {
         "code": code,
         "message": message,
+        "score":score,
         "return": data
     }
     print("Response data:", result)
