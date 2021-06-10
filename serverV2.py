@@ -125,6 +125,7 @@ def reid_run():
 
         features2 = get_featureV2(model, img2_PIL, data_transforms, ms)
         features2_T = np.around(np.transpose(features2, [1, 0]), 4)
+
         with torch.no_grad():
             # 矩阵乘法torch.mm [1,2]x[2,3]=[1,3]
             score = np.dot(features1, features2_T)
