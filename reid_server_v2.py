@@ -141,7 +141,7 @@ def reid_run():
                 scores.append(0)
                 continue
 
-            scores.append(s[max_index])
+            scores.append(int(s[max_index]))
             pairs1.append(i)
             pairs2.append(int(max_index))
     # 返回结果
