@@ -113,7 +113,6 @@ def reid_run():
     print(type(params["img1_list"]))
     # print(params["img2_list"])
 
-
     t = params["t"]
 
     img1_PIL = base64_to_image(params["img1_list"])
@@ -132,7 +131,7 @@ def reid_run():
             print("score:", score)
         pairs1 = []
         pairs2 = []
-        scores=[]
+        scores = []
         for i, s in enumerate(score):
             max_index = np.argmax(s)
 
@@ -146,7 +145,7 @@ def reid_run():
             pairs1.append(i)
             pairs2.append(int(max_index))
     # 返回结果
-    return get_result(200, "Success",str(scores), {"cam1": pairs1, "cam2": pairs2})
+    return get_result(200, "Success", scores, {"cam1": pairs1, "cam2": pairs2})
 
 
 def softmax(x: list) -> list:
@@ -160,11 +159,11 @@ def softmax(x: list) -> list:
 
 
 # 构建接口返回结果
-def get_result(code, message,score, data):
+def get_result(code, message, score, data):
     result = {
         "code": code,
         "message": message,
-        "score":score,
+        "score": score,
         "return": data
     }
     print("Response data:", result)
