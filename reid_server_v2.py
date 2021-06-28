@@ -83,8 +83,8 @@ data_transforms = transforms.Compose([
 ])
 
 model_structure = Net(751, stride=2)
-assert os.path.exists("model_weight/net_59.pth") == True, "权重文件不存在"
-model = load_network(model_structure, network_weights_path="model_weight/net_59.pth")
+assert os.path.exists("./model_weight/net_59.pth") == True, "权重文件不存在"
+model = load_network(model_structure, network_weights_path="./model_weight/net_59.pth")
 
 model.classifier.classifier = nn.Sequential()
 
@@ -106,6 +106,20 @@ allowed_extension = ['png', 'jpg', 'jpeg']
 
 app = Flask(__name__)
 
+
+@app.route('/get_feature', methods=['POST'])
+def get_feature():
+    params = request.json if request.method == "POST" else request.args
+    images = base64_to_image(params["image_list"])
+    features = get_featureV2(model, images, data_transforms, ms)
+    print(type(features))
+    data=[]
+    result={
+        'code':200,
+        'message':"Success",
+        'data':data
+    }
+    return jsonify(result)
 
 @app.route('/', methods=['POST'])
 def reid_run():
