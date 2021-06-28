@@ -112,12 +112,14 @@ def get_feature():
     params = request.json if request.method == "POST" else request.args
     images = base64_to_image(params["image_list"])
     features = get_featureV2(model, images, data_transforms, ms)
-    print(type(features))
-    data=[]
+    #touch to list
+    features_list=[]
+    for item in features:
+        features_list.append(item.tolist())
     result={
         'code':200,
         'message':"Success",
-        'data':data
+        'data':features_list
     }
     return jsonify(result)
 
