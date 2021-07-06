@@ -110,7 +110,16 @@ app = Flask(__name__)
 @app.route('/get_feature', methods=['POST'])
 def get_feature():
     params = request.json if request.method == "POST" else request.args
+
     images = base64_to_image(params["image_list"])
+    if not images:
+        result = {
+            'code': 200,
+            'message': "Success",
+            'data':[]
+        }
+        return jsonify(result)
+
     features = get_featureV2(model, images, data_transforms, ms)
     #touch to list
     features_list=[]
