@@ -1,23 +1,57 @@
+import os
+import math
+import argparse
+
+import PIL.JpegImagePlugin
+import numpy
+
+import torch
 import torch.nn as nn
 from torch.autograd import Variable
 from torchvision import transforms
-import os
-import math
+import torch.backends.cudnn as cudnn
+
 from models.resnet50 import Net
 from PIL import Image
 from PIL import ImageFile
-import torch.backends.cudnn as cudnn
-import torch
+
+parser = argparse.ArgumentParser()
+parser.add_argument('--weight', '-w', type=str, default='./weight/reid_weight.pth',
+                    help='net weigth')
+parser.add_argument('--test_img1', '-i1', type=str, default=None,
+                    help='test img path')
+parser.add_argument('--test_img2', '-i2', type=str, default=None,
+                    help='test img path')
+parser.add_argument('--test_file', '-f', type=str, default=None,
+                    help='test file of img path')
+parser.add_argument('--gpu', '-gpu', type=bool, default=True,
+                    help='use gpu or not')
+args = parser.parse_args()
+
+Path = str
+CvImage = numpy.ndarray
+PILImage = PIL.JpegImagePlugin.JpegImageFile
+Tensor = torch.Tensor
+NumpyType = numpy.ndarray
+
+CUDA_AVAILABLE = torch.cuda.is_available()
+CUDA_AVAILABLE = False if args.gpu else ...
+
+if CUDA_AVAILABLE:
+    print('Use GPU')
+else:
+    print('Use CPU')
 
 
 # 加载网络权重
-def load_network(network, network_weights_path):
+def load_network(network, network_weights_path: Path):
+    assert os.path.exists(network_weights_path) is True, 'network_weights_path is not exists'
     network.load_state_dict(torch.load(network_weights_path))
     return network
 
 
 # 水平翻转
-def fliplr(img):
+def fliplr(img: PILImage)->PILImage:
     # function arange will reture int64 val
     inv_idx = torch.arange(img.size(3) - 1, -1, -1).long()  # N x C x H x W
     img_flip = img.index_select(3, inv_idx)
@@ -25,31 +59,32 @@ def fliplr(img):
 
 
 # 获取图像特征
-def get_feature(model, img_path, transforms, ms):
+def get_feature(model, img_path: Path, transform, ms: str) -> Tensor:
     img = Image.open(img_path).convert("RGB")
     ImageFile.LOAD_TRUNCATED_IMAGES = True
 
-    img = transforms(img)
+    img = transform(img)
     img = torch.unsqueeze(img, 0)
 
     features = torch.FloatTensor()
 
     n, c, h, w = img.size()
-    ff = torch.FloatTensor(n, 512).zero_().cuda()
-    for i in range(2):
-        if (i == 1):
-            img = fliplr(img)
 
-        if torch.cuda.is_available():
-            # print("torch.cuda.is_available():", torch.cuda.is_available())
-            input_img = Variable(img.cuda())
-        else:
-            input_img = Variable(img)
+    ff = torch.FloatTensor(n, 512).zero_()
+    ff = ff.cuda() if CUDA_AVAILABLE else ...
+
+    for i in range(2):
+        img = fliplr(img) if i == 1 else ...
+
+        input_img = img.cuda() if CUDA_AVAILABLE else ...
+        input_img = Variable(input_img)
 
         for scale in ms:
             if scale != 1:
                 # bicubic is only  available in pytorch>= 1.1
-                input_img = nn.functional.interpolate(input_img, scale_factor=scale, mode='bicubic',
+                input_img = nn.functional.interpolate(input_img,
+                                                      scale_factor=scale,
+                                                      mode='bicubic',
                                                       align_corners=False)
             outputs = model(input_img)
             ff += outputs
@@ -61,13 +96,11 @@ def get_feature(model, img_path, transforms, ms):
     return features
 
 
-def img_test(img1_path: str, img2_path: str):
+def img_test(img1_path: Path, img2_path: Path) -> NumpyType:
     assert os.path.exists(img1_path) is True, "file_path is not exists"
     assert os.path.exists(img2_path) is True, "file_path is not exists"
 
-    use_gpu = torch.cuda.is_available()
-    if use_gpu:
-        print("use gpu:", use_gpu)
+    if CUDA_AVAILABLE:
         torch.cuda.set_device("cuda:0")
         cudnn.benchmark = True
 
@@ -78,13 +111,12 @@ def img_test(img1_path: str, img2_path: str):
     ])
 
     model_structure = Net(751, stride=2)
-    model = load_network(model_structure, network_weights_path="model_weight/net_59.pth")
+    model = load_network(model_structure, network_weights_path=args.weight)
 
     model.classifier.classifier = nn.Sequential()
 
     model = model.eval()
-    if use_gpu:
-        model = model.cuda()
+    model = model.cuda() if CUDA_AVAILABLE else ...
 
     ms = "1"
     print('We use the scale: %s' % ms)
@@ -93,6 +125,7 @@ def img_test(img1_path: str, img2_path: str):
     for s in str_ms:
         s_f = float(s)
         ms.append(math.sqrt(s_f))
+
     with torch.no_grad():
         feature1 = get_feature(model, img1_path, data_transforms, ms)
         feature2 = get_feature(model, img2_path, data_transforms, ms)
@@ -100,14 +133,14 @@ def img_test(img1_path: str, img2_path: str):
         feature2_T = feature2.view(-1, 1)
         # 矩阵乘法torch.mm [1,2]x[2,3]=[1,3]
         score = torch.mm(feature1, feature2_T)
-        score = score.squeeze(1).cpu()
-        score = score.numpy()
-        print(score)
+        score = score.squeeze(1).cpu().numpy()
+        # score = score.numpy()
     return score
 
 
-def file_test(file_path: str):
-    assert os.path.exists(file_path) is True, "file_path is not exists"
+def file_test(file_path: Path) -> list:
+    assert os.path.exists(file_path) is True, "File_path is not exists"
+    assert os.path.isfile(file_path) is True, "File_path is not file"
     ms = "1"
     stride = 2
     nclasses = 751
@@ -119,9 +152,8 @@ def file_test(file_path: str):
         s_f = float(s)
         ms.append(math.sqrt(s_f))
 
-    use_gpu = torch.cuda.is_available()
     # set gpu ids
-    if use_gpu:
+    if CUDA_AVAILABLE:
         torch.cuda.set_device(0)
         # 为整个网络的每个卷积层搜索最适合它的卷积实现算法，进而实现网络的加速
         cudnn.benchmark = True
@@ -134,39 +166,32 @@ def file_test(file_path: str):
 
     model_structure = Net(nclasses, stride=stride)
 
-    model = load_network(model_structure, network_weights_path="model_weight/net_59.pth")
+    model = load_network(model_structure, network_weights_path=args.weight)
 
     model.classifier.classifier = nn.Sequential()
+
     model = model.eval()
+    model = model.cuda() if CUDA_AVAILABLE else ...
 
-    if use_gpu:
-        model = model.cuda()
-
-    features = torch.FloatTensor()
-    label = []
-    # root = "../test_imgs"
-    # file_path = os.path.join(root, file_path)
+    reslut = []
     with torch.no_grad():
         img_paths = os.listdir(file_path)
-        print(img_paths)
         for img in img_paths:
+            item = dict()
             img_path = os.path.join(file_path, img)
             feature = get_feature(model, img_path, data_transforms, ms)
-            print("img:{},f:{}".format(img_path, feature.shape))
 
-            features = torch.cat((features, feature.data.cpu()), 0)
-            label.append(img)
-    return features, label
+            item['img'] = img
+            item['feature'] = feature
+            reslut.append(item)
+
+    return reslut
 
 
 if __name__ == '__main__':
-    ret = img_test("./t1.jpg", "./t2.jpg")
-    #
-    # gallery_features, gallery_label = file_test("test_imgs/gallery")
-    # query_features, query_label = file_test("test_imgs/query")
-    #
-    # result = {'query_features': query_features.numpy(),
-    #           'query_label': query_label,
-    #           'gallery_features': gallery_features.numpy(),
-    #           'gallery_label': gallery_label}
-    # scipy.io.savemat("result.mat",result)
+    if args.test_img1 is not None and args.test_img2 is not None:
+        ret_img = img_test(args.test_img1, args.test_img2)
+        print(ret_img)
+    if args.test_file is not None:
+        ret_file = file_test(args.test_file)
+        print(ret_file)
