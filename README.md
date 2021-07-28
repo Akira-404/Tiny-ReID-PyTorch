@@ -44,15 +44,12 @@ python3 train.py
 ## Test
 
 ```bash
-python test.py 
+python test.py -w xxx/xxx.pth -i1 xx/xxx.jpg -i2 xx/xxx.jpg
 ```
 
 ## HTTP Server
 
 ```python
-python server.py
+python reid_server.py -w xxx/xxx.pth
 ```
 
-url:http://your ip address:24415/reid
-
-![image-20210501191946840](C:\Users\Administrator\AppData\Roaming\Typora\typora-user-images\image-20210501191946840.png)
